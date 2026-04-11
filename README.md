@@ -1,2 +1,2 @@
-# DTSim
-Simulation library
+# SharpSim
+Simulation library in C#
