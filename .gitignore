@@ -40,6 +40,7 @@ ScaffoldingReadMe.txt
 ~$*
 *~
 CodeCoverage/
+SMT2020/
 
 # MSBuild Binary and Structured Log
 *.binlog
