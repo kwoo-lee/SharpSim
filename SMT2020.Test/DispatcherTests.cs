@@ -1,4 +1,5 @@
 using SharpSim;
+using Xunit.Abstractions;
 
 namespace SMT2020.Test;
 
@@ -6,6 +7,9 @@ public class DispatcherTests
 {
     private readonly IDispatcher _dispatcher = new Dispatcher();
     private readonly SimTime _now = new SimTime(0.0);
+    private readonly ITestOutputHelper _output;
+
+    public DispatcherTests(ITestOutputHelper output) => _output = output;
 
     // ──────────────────────────────────────────────
     // Empty-input edge cases
@@ -17,7 +21,7 @@ public class DispatcherTests
         var fab = TestHelpers.CreateFab();
         var tg = TestHelpers.CreateToolGroup(fab, numberOfTools: 2);
 
-        var result = _dispatcher.Do(_now, tg);
+        var result = _dispatcher.Do(_now, tg).Assignments;
 
         Assert.Empty(result);
     }
@@ -29,7 +33,7 @@ public class DispatcherTests
         var tg = TestHelpers.CreateToolGroup(fab, numberOfTools: 0);
         tg.Enqueue(TestHelpers.CreateLot(tg, 1));
 
-        var result = _dispatcher.Do(_now, tg);
+        var result = _dispatcher.Do(_now, tg).Assignments;
 
         Assert.Empty(result);
     }
@@ -42,7 +46,7 @@ public class DispatcherTests
         foreach (var t in tg.Tools) t.SetState(ToolState.Breakdown);
         tg.Enqueue(TestHelpers.CreateLot(tg, 1));
 
-        var result = _dispatcher.Do(_now, tg);
+        var result = _dispatcher.Do(_now, tg).Assignments;
 
         Assert.Empty(result);
     }
@@ -55,7 +59,7 @@ public class DispatcherTests
         foreach (var t in tg.Tools) t.SetState(ToolState.PM);
         tg.Enqueue(TestHelpers.CreateLot(tg, 1));
 
-        var result = _dispatcher.Do(_now, tg);
+        var result = _dispatcher.Do(_now, tg).Assignments;
 
         Assert.Empty(result);
     }
@@ -72,7 +76,7 @@ public class DispatcherTests
         var lot = TestHelpers.CreateLot(tg, 1);
         tg.Enqueue(lot);
 
-        var result = _dispatcher.Do(_now, tg);
+        var result = _dispatcher.Do(_now, tg).Assignments;
 
         Assert.Single(result);
         var (tool, lots) = Assert.Single(result);
@@ -92,7 +96,7 @@ public class DispatcherTests
         var l3 = TestHelpers.CreateLot(tg, 3, enqueueSec: 2);
         tg.Enqueue(l1, l2, l3);
 
-        var result = _dispatcher.Do(_now, tg);
+        var result = _dispatcher.Do(_now, tg).Assignments;
 
         Assert.Equal(2, result.Count);
         var assignedLots = result.SelectMany(kv => kv.Value).ToList();
@@ -111,7 +115,7 @@ public class DispatcherTests
         var l2 = TestHelpers.CreateLot(tg, 2);
         tg.Enqueue(l1, l2);
 
-        var result = _dispatcher.Do(_now, tg);
+        var result = _dispatcher.Do(_now, tg).Assignments;
 
         Assert.Equal(2, result.Count);
         Assert.All(result.Values, lots => Assert.Single(lots));
@@ -124,7 +128,7 @@ public class DispatcherTests
         var tg = TestHelpers.CreateToolGroup(fab, numberOfTools: 3);
         for (int i = 1; i <= 5; i++) tg.LotQueue.Add(TestHelpers.CreateLot(tg, i));
 
-        var result = _dispatcher.Do(_now, tg);
+        var result = _dispatcher.Do(_now, tg).Assignments;
 
         Assert.All(result.Values, lots => Assert.Single(lots));
         Assert.Equal(3, result.Count);
@@ -144,7 +148,7 @@ public class DispatcherTests
         var lot = TestHelpers.CreateLot(tg, 1);
         tg.Enqueue(lot);
 
-        var result = _dispatcher.Do(_now, tg);
+        var result = _dispatcher.Do(_now, tg).Assignments;
 
         Assert.Single(result);
         Assert.True(result.ContainsKey(tg.Tools[1]));
@@ -161,7 +165,7 @@ public class DispatcherTests
         var lot = TestHelpers.CreateLot(tg, 1);
         tg.Enqueue(lot);
 
-        var result = _dispatcher.Do(_now, tg);
+        var result = _dispatcher.Do(_now, tg).Assignments;
 
         Assert.Single(result);
         Assert.True(result.ContainsKey(tg.Tools[0]));
@@ -180,7 +184,7 @@ public class DispatcherTests
         var l2 = TestHelpers.CreateLot(tg, 2);
         tg.Enqueue(l1, l2);
 
-        var result = _dispatcher.Do(_now, tg);
+        var result = _dispatcher.Do(_now, tg).Assignments;
 
         Assert.Equal(2, result.Count);
     }
@@ -195,7 +199,7 @@ public class DispatcherTests
         var lot = TestHelpers.CreateLot(tg, 1);
         tg.Enqueue(lot);
 
-        var result = _dispatcher.Do(_now, tg);
+        var result = _dispatcher.Do(_now, tg).Assignments;
 
         Assert.Single(result);
         Assert.True(result.ContainsKey(tg.Tools[1]));
@@ -217,7 +221,7 @@ public class DispatcherTests
         var mid = TestHelpers.CreateLot(tg, 3, enqueueSec: 50);
         tg.Enqueue(late, early, mid);
 
-        var result = _dispatcher.Do(_now, tg);
+        var result = _dispatcher.Do(_now, tg).Assignments;
 
         Assert.Same(early, Assert.Single(result.Values).Single());
     }
@@ -232,7 +236,7 @@ public class DispatcherTests
         var early = TestHelpers.CreateLot(tg, 2, enqueueSec: 10);
         tg.Enqueue(early, late);
 
-        var result = _dispatcher.Do(_now, tg);
+        var result = _dispatcher.Do(_now, tg).Assignments;
 
         Assert.Same(late, Assert.Single(result.Values).Single());
     }
@@ -248,7 +252,7 @@ public class DispatcherTests
         var mid = TestHelpers.CreateLot(tg, 3, priority: 50);
         tg.Enqueue(low, high, mid);
 
-        var result = _dispatcher.Do(_now, tg);
+        var result = _dispatcher.Do(_now, tg).Assignments;
 
         Assert.Same(high, Assert.Single(result.Values).Single());
     }
@@ -264,7 +268,7 @@ public class DispatcherTests
         var mid = TestHelpers.CreateLot(tg, 3, processingSec: 100);
         tg.Enqueue(slow, fast, mid);
 
-        var result = _dispatcher.Do(_now, tg);
+        var result = _dispatcher.Do(_now, tg).Assignments;
 
         Assert.Same(fast, Assert.Single(result.Values).Single());
     }
@@ -279,7 +283,7 @@ public class DispatcherTests
         var fast = TestHelpers.CreateLot(tg, 2, processingSec: 30);
         tg.Enqueue(fast, slow);
 
-        var result = _dispatcher.Do(_now, tg);
+        var result = _dispatcher.Do(_now, tg).Assignments;
 
         Assert.Same(slow, Assert.Single(result.Values).Single());
     }
@@ -295,7 +299,7 @@ public class DispatcherTests
         var midDue = TestHelpers.CreateLot(tg, 3, dueSec: 1_000);
         tg.Enqueue(lateDue, earlyDue, midDue);
 
-        var result = _dispatcher.Do(_now, tg);
+        var result = _dispatcher.Do(_now, tg).Assignments;
 
         Assert.Same(earlyDue, Assert.Single(result.Values).Single());
     }
@@ -315,7 +319,7 @@ public class DispatcherTests
         var crit = TestHelpers.CreateLot(tg, 3, processingSec: 100, dueSec: 50);
         tg.Enqueue(safe, tight, crit);
 
-        var result = _dispatcher.Do(_now, tg);
+        var result = _dispatcher.Do(_now, tg).Assignments;
 
         Assert.Same(crit, Assert.Single(result.Values).Single());
     }
@@ -340,7 +344,7 @@ public class DispatcherTests
         var lowestPri = TestHelpers.CreateLot(tg, 3, priority: 1, enqueueSec: 0);
         tg.Enqueue(laterSamePri, lowestPri, earlierSamePri);
 
-        var result = _dispatcher.Do(_now, tg);
+        var result = _dispatcher.Do(_now, tg).Assignments;
 
         Assert.Same(earlierSamePri, Assert.Single(result.Values).Single());
     }
@@ -356,7 +360,7 @@ public class DispatcherTests
         var p5 = TestHelpers.CreateLot(tg, 3, priority: 5);
         tg.Enqueue(p1, p9, p5);
 
-        var result = _dispatcher.Do(_now, tg);
+        var result = _dispatcher.Do(_now, tg).Assignments;
 
         // First available tool (Tools[0]) gets the highest-priority lot.
         Assert.Same(p9, result[tg.Tools[0]].Single());
@@ -385,31 +389,179 @@ public class DispatcherTests
         var l2 = TestHelpers.CreateLot(tg, 2, enqueueSec: 1);
         tg.Enqueue(l1, l2);
 
-        var result = _dispatcher.Do(_now, tg);
+        var result = _dispatcher.Do(_now, tg).Assignments;
 
         Assert.Equal(2, result.Count);
         Assert.All(result.Values, lots => Assert.Single(lots));
     }
 
+    // ──────────────────────────────────────────────
+    // BatchLogic — wafer-sum thresholds & wait-time policy
+    // ──────────────────────────────────────────────
+
+    private static ToolGroup MakeBatchTG(Fab fab, int numberOfTools = 1) =>
+        TestHelpers.CreateToolGroup(fab, numberOfTools: numberOfTools, type: ToolType.Batch);
+
     [Fact]
-    public void Do_BatchToolType_FollowsBaseLogic()
+    public void Batch_WaferSumReachesMax_DispatchesImmediately()
     {
-        // Even when Toolype == Batch, the dispatcher currently routes through BaseLogic.
-        // Pin that contract so a future rewrite to use BatchLogic surfaces here.
+        // 4 lots × 25 wafers = 100 wafers == BatchMaximum → 즉시 dispatch (조건 1)
         var fab = TestHelpers.CreateFab();
-        var tg = TestHelpers.CreateToolGroup(
-            fab,
-            numberOfTools: 1,
-            type: ToolType.Batch,
-            rank1: DispatchingRuleType.Priority);
+        var tg = MakeBatchTG(fab);
+        var step = TestHelpers.MakeBatchStep(tg, batchMin: 75, batchMax: 100);
+        for (int i = 1; i <= 4; i++)
+            tg.LotQueue.Add(TestHelpers.LotForStep(step, i, wafersPerLot: 25));
 
-        var low = TestHelpers.CreateLot(tg, 1, priority: 1);
-        var high = TestHelpers.CreateLot(tg, 2, priority: 9);
-        tg.Enqueue(low, high);
+        var dr = _dispatcher.Do(_now, tg);
 
-        var result = _dispatcher.Do(_now, tg);
+        Assert.Single(dr.Assignments);
+        var assigned = dr.Assignments[tg.Tools[0]];
+        Assert.Equal(4, assigned.Count);
+        Assert.Equal(100, assigned.Sum(l => l.WafersPerLot));
+        _output.WriteLine($"NextWakeup = {(dr.NextWakeup.HasValue ? ((double)dr.NextWakeup.Value).ToString() : "null")}");
+        Assert.Null(dr.NextWakeup);
+    }
 
-        Assert.Same(high, Assert.Single(result.Values).Single());
+    [Fact]
+    public void Batch_BelowMin_NotEnoughWait_HoldsAndSchedulesWakeup()
+    {
+        // 1 lot × 25 wafers, BatchMin=75. wait=0 < MaxWaitForMinBatch(=180) → 보류
+        // wakeup = enqueue(0) + 180 = 180
+        var fab = TestHelpers.CreateFab();
+        var tg = MakeBatchTG(fab);
+        var step = TestHelpers.MakeBatchStep(tg, batchMin: 75, batchMax: 100, processingSec: 600);
+        tg.LotQueue.Add(TestHelpers.LotForStep(step, 1, wafersPerLot: 25, enqueueSec: 0));
+
+        var dr = _dispatcher.Do(_now, tg);
+
+        Assert.Empty(dr.Assignments);
+        Assert.NotNull(dr.NextWakeup);
+        Assert.Equal(180.0, (double)dr.NextWakeup.Value, precision: 3);
+    }
+
+    [Fact]
+    public void Batch_BelowMin_PastMinBatchWait_DispatchesPartial()
+    {
+        // 1 lot × 25, BatchMin=75. now=200 > MaxWaitForMinBatch(180) → 조건 3 만족 → dispatch
+        var fab = TestHelpers.CreateFab();
+        var tg = MakeBatchTG(fab);
+        var step = TestHelpers.MakeBatchStep(tg, batchMin: 75, batchMax: 100, processingSec: 600);
+        tg.LotQueue.Add(TestHelpers.LotForStep(step, 1, wafersPerLot: 25, enqueueSec: 0));
+
+        var now = new SimTime(200.0);
+        var dr = _dispatcher.Do(now, tg);
+
+        Assert.Single(dr.Assignments);
+        Assert.Single(dr.Assignments[tg.Tools[0]]);
+    }
+
+    [Fact]
+    public void Batch_AboveMin_NotEnoughWait_HoldsAndSchedulesShorterWakeup()
+    {
+        // 3 lots × 25 = 75 wafers == BatchMin (>= min, < max). wait=0 < MaxWaitForMaxBatch(=60) → 보류
+        // wakeup = enqueue(0) + 60
+        var fab = TestHelpers.CreateFab();
+        var tg = MakeBatchTG(fab);
+        var step = TestHelpers.MakeBatchStep(tg, batchMin: 75, batchMax: 100, processingSec: 600);
+        for (int i = 1; i <= 3; i++)
+            tg.LotQueue.Add(TestHelpers.LotForStep(step, i, wafersPerLot: 25, enqueueSec: 0));
+
+        var dr = _dispatcher.Do(_now, tg);
+
+        Assert.Empty(dr.Assignments);
+        Assert.NotNull(dr.NextWakeup);
+        Assert.Equal(60.0, (double)dr.NextWakeup.Value, precision: 3);
+    }
+
+    [Fact]
+    public void Batch_AboveMin_PastMaxBatchWait_Dispatches()
+    {
+        // 3 lots × 25 = 75 wafers == BatchMin. now=70 > MaxWaitForMaxBatch(60) → 조건 2 → dispatch
+        var fab = TestHelpers.CreateFab();
+        var tg = MakeBatchTG(fab);
+        var step = TestHelpers.MakeBatchStep(tg, batchMin: 75, batchMax: 100, processingSec: 600);
+        for (int i = 1; i <= 3; i++)
+            tg.LotQueue.Add(TestHelpers.LotForStep(step, i, wafersPerLot: 25, enqueueSec: 0));
+
+        var now = new SimTime(70.0);
+        var dr = _dispatcher.Do(now, tg);
+
+        Assert.Single(dr.Assignments);
+        Assert.Equal(3, dr.Assignments[tg.Tools[0]].Count);
+    }
+
+    [Fact]
+    public void Batch_DifferentSteps_AreNotMixed()
+    {
+        // 같은 ToolGroup이지만 Step이 다른 두 lot은 같은 batch에 묶이지 않음.
+        // 각 step group은 독립 평가되어, 두 그룹 모두 wafer 부족(50 < 75)으로 보류.
+        var fab = TestHelpers.CreateFab();
+        var tg = MakeBatchTG(fab, numberOfTools: 2);
+        var stepA = TestHelpers.MakeBatchStep(tg, batchMin: 75, batchMax: 100);
+        var stepB = TestHelpers.MakeBatchStep(tg, batchMin: 75, batchMax: 100);
+
+        tg.LotQueue.Add(TestHelpers.LotForStep(stepA, 1, wafersPerLot: 50));
+        tg.LotQueue.Add(TestHelpers.LotForStep(stepB, 2, wafersPerLot: 50));
+
+        var dr = _dispatcher.Do(_now, tg);
+
+        // 두 그룹 다 batchMin 미달 + wait=0 → 둘 다 보류
+        Assert.Empty(dr.Assignments);
+        Assert.NotNull(dr.NextWakeup);
+    }
+
+    [Fact]
+    public void Batch_DifferentSteps_BothHitMax_GetSeparateTools()
+    {
+        // 다른 step끼리 각자 batchMax(100) 도달 → 가용 tool 두 대에 각각 하나씩 할당
+        var fab = TestHelpers.CreateFab();
+        var tg = MakeBatchTG(fab, numberOfTools: 2);
+        var stepA = TestHelpers.MakeBatchStep(tg, batchMin: 75, batchMax: 100);
+        var stepB = TestHelpers.MakeBatchStep(tg, batchMin: 75, batchMax: 100);
+
+        var a1 = TestHelpers.LotForStep(stepA, 1, wafersPerLot: 100);
+        var b1 = TestHelpers.LotForStep(stepB, 2, wafersPerLot: 100);
+        tg.LotQueue.Add(a1);
+        tg.LotQueue.Add(b1);
+
+        var dr = _dispatcher.Do(_now, tg);
+
+        Assert.Equal(2, dr.Assignments.Count);
+        var allAssigned = dr.Assignments.SelectMany(kv => kv.Value).ToList();
+        Assert.Contains(a1, allAssigned);
+        Assert.Contains(b1, allAssigned);
+    }
+
+    [Fact]
+    public void Batch_GreedyFit_SkipsOversizedLot()
+    {
+        // batchMax=80. 25 + 50 = 75 (다음 25는 100 초과 → fit 안 됨 X, 75+25=100인데 max=80 초과).
+        // 첫 25: 0+25=25 ≤ 80 ✓
+        // 다음 50: 25+50=75 ≤ 80 ✓
+        // 다음 25: 75+25=100 > 80 → skip
+        // → 2 lots, 75 wafers.
+        var fab = TestHelpers.CreateFab();
+        var tg = MakeBatchTG(fab);
+        var step = TestHelpers.MakeBatchStep(tg, batchMin: 50, batchMax: 80, processingSec: 600);
+
+        var l1 = TestHelpers.LotForStep(step, 1, wafersPerLot: 25);
+        var l2 = TestHelpers.LotForStep(step, 2, wafersPerLot: 50);
+        var l3 = TestHelpers.LotForStep(step, 3, wafersPerLot: 25);
+        tg.LotQueue.Add(l1);
+        tg.LotQueue.Add(l2);
+        tg.LotQueue.Add(l3);
+
+        // wait=0이지만 75 ≥ batchMin(50). 그러나 wait=0 < MaxWaitForMaxBatch(60) → 보류 예상
+        // 실제 dispatch를 검증하려면 wait 충분.
+        var now = new SimTime(70.0);
+        var dr = _dispatcher.Do(now, tg);
+
+        Assert.Single(dr.Assignments);
+        var assigned = dr.Assignments[tg.Tools[0]];
+        Assert.Equal(2, assigned.Count);
+        Assert.Contains(l1, assigned);
+        Assert.Contains(l2, assigned);
+        Assert.DoesNotContain(l3, assigned);
     }
 
     // ──────────────────────────────────────────────
@@ -423,7 +575,7 @@ public class DispatcherTests
         var tg = TestHelpers.CreateToolGroup(fab, numberOfTools: 3);
         for (int i = 1; i <= 5; i++) tg.LotQueue.Add(TestHelpers.CreateLot(tg, i));
 
-        var result = _dispatcher.Do(_now, tg);
+        var result = _dispatcher.Do(_now, tg).Assignments;
 
         var allAssigned = result.SelectMany(kv => kv.Value).ToList();
         Assert.Equal(allAssigned.Count, allAssigned.Distinct().Count());

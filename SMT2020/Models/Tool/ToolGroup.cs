@@ -6,8 +6,8 @@ public class ToolGroup(int id, string name, AreaType areaType, ToolType toolType
     : SimObject(id, name)
 {
     #region [Attributes]
+    public ToolType Toolype { get; private set; } =toolType;
     public AreaType AreaType { get; private set; } = areaType;
-    public ToolType Toolype { get; private set; } = toolType;
     public ProcessingUnit ProcessingUnit { get; private set; } = processingUnit;
     public double LoadingTime { get; } = loadingTime;
     public double UnloadingTiem { get; } = unloadingTime;
@@ -21,7 +21,10 @@ public class ToolGroup(int id, string name, AreaType areaType, ToolType toolType
     {
         for (int i = 0; i < numberOfTools; i++)
         {
-            var tool = new Tool(fab, fabHistory, Tools.Count, Name + $"_{i}", Toolype, this);
+            var tool = this.Toolype == ToolType.Batch ?
+                new BatchTool(fab, fabHistory, Tools.Count, Name + $"_{i}", Toolype, this) :
+                new Tool(fab, fabHistory, Tools.Count, Name + $"_{i}", Toolype, this);
+            //var tool = new Tool(fab, fabHistory, Tools.Count, Name + $"_{i}", Toolype, this);
             Tools.Add(tool);
         }
     }

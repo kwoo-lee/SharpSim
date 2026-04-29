@@ -77,7 +77,7 @@ public class LotRelease(Fab fab, FabHistory hist, int id, string name)
         if(Sim.Now > 86400 * 30)
             return; 
         // -- Temp --
-        
+
         var delayTime = plan.Dist.GetNumber();
         Sim.Delay(delayTime, new List<Action>() { () => { ReleaseByPlan(plan); }} );
     }

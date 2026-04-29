@@ -68,14 +68,54 @@ internal static class TestHelpers
         foreach (var lot in lots) tg.LotQueue.Add(lot);
     }
 
-    /// <summary>Mark a tool as having no free port by filling AssignedLots up to Ports.Count.</summary>
+    /// <summary>Mark a tool as reserved (busy) so the dispatcher skips it.</summary>
     public static void FillTool(Tool tool)
     {
-        for (int i = 0; i < tool.Ports.Count; i++)
-        {
-            // Use sentinel lots; identity is what matters for the dictionary.
-            var sentinel = new Lot(-1_000 - i, $"_filler_{i}", "P", new Route("_"), 1, 0, 0, 0);
-            tool.AssignedLots[sentinel] = true;
-        }
+        var sentinel = new Lot(-1_000, "_filler", "P", new Route("_"), 1, 0, 0, 0);
+        tool.AssignLot(sentinel);
+    }
+
+    /// <summary>
+    /// Build a fresh Step for a Batch toolgroup. SetProcessingTime triggers
+    /// MaximumWaitingTimeForMin/MaxBatch population.
+    /// </summary>
+    public static Step MakeBatchStep(
+        ToolGroup tg,
+        int batchMin,
+        int batchMax,
+        double processingSec = 600)
+    {
+        var step = new Step(order: 1, description: "BatchStep", toolGroup: tg, processingUnit: ProcessingUnit.Batch);
+        step.SetBatchSize(batchMin, batchMax);
+        step.SetProcessingTime(new Const(processingSec), cascadingInterval: null, processingProbability: 1.0);
+        return step;
+    }
+
+    /// <summary>
+    /// Build a Lot whose CurrentStep is the given <paramref name="step"/> (shared by reference).
+    /// Lots passed the same step end up in the same batch group.
+    /// </summary>
+    public static Lot LotForStep(
+        Step step,
+        int id,
+        int wafersPerLot = 25,
+        double enqueueSec = 0,
+        int priority = 10)
+    {
+        var route = new Route($"Route_{id}");
+        route.AddStep(step);
+
+        var lot = new Lot(
+            id: id,
+            name: $"Lot_{id}",
+            productName: "P",
+            route: route,
+            wafersPerLot: wafersPerLot,
+            priroity: priority,
+            startTime: 0,
+            endTime: 100_000);
+        lot.StepIndex = 0;
+        lot.EnqueueTime = enqueueSec;
+        return lot;
     }
 }

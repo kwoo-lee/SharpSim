@@ -26,6 +26,9 @@ public class Fab : Simulation
         LogHandler.Info($"====================================");
         LogHandler.Info($"TOTAL FABIN : {LotRelease.LastLotId}");
         LogHandler.Info($"TOTAL FABOUT: {MES.FabOutLots.Count}");
+        LogHandler.Info($"====================================");
+
+        LogHandler.Info($"{MES.DISPATCH}");
     }
 
 #region [Load Data]

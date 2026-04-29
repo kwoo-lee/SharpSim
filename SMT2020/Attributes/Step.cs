@@ -13,6 +13,8 @@ public class Step(int order, string description, ToolGroup toolGroup, Processing
     public double ProcessingProbability { get; private set; } = 100.0;
     public int BatchMinimum { get; private set; }
     public int BatchMaximum { get; private set; }
+    public double? MaximumWaitingTimeForMinBatch { get; private set; }
+    public double? MaximumWaitingTimeForMaxBatch { get; private set; }
     public SetUp? SetUp { get; private set; }
     public uint StepForLTLDedication { get; private set; }
     public double ReworkProbability { get; private set; }
@@ -25,6 +27,12 @@ public class Step(int order, string description, ToolGroup toolGroup, Processing
         ProcessingTime = processingTime;
         CascadingInterval = cascadingInterval;
         ProcessingProbability = processingProbability;
+
+        if (ToolGroup.Toolype == ToolType.Batch)
+        {
+            MaximumWaitingTimeForMinBatch = processingTime.Mean * 3.0 / 10.0;
+            MaximumWaitingTimeForMaxBatch = processingTime.Mean * 1.0 / 10.0;
+        }
     }
 
     public void SetSetUp(SetUp setUp) => SetUp = setUp;

@@ -21,6 +21,7 @@ public class Simulation : ISimulation
     private IEventList evtList;
     public SimTime Now { get; private set; } = new SimTime(0);
     public List<ISimNode> Nodes { get; private set; } = new List<ISimNode>();
+    public Dictionary<string, long> EventCounts { get; private set; } = new Dictionary<string, long>();
     public Simulation(IEventList evtList)
     {
         this.evtList = evtList;
@@ -43,6 +44,9 @@ public class Simulation : ISimulation
             node.Initialize();
         }
 
+        EventCounts.Clear();
+        long totalEvents = 0;
+
         while (evtList.Count > 0)
         {
             var evt = evtList.RetrieveNext();
@@ -50,7 +54,24 @@ public class Simulation : ISimulation
                 break;
 
             Now = evt.Time;
+
+            var key = evt.GetType().Name;
+            EventCounts[key] = EventCounts.TryGetValue(key, out var c) ? c + 1 : 1;
+            totalEvents++;
+
             evt.Execute();
+        }
+
+        ReportEventCounts(totalEvents);
+    }
+
+    private void ReportEventCounts(long totalEvents)
+    {
+        LogHandler.Info($"=== Event call histogram (total: {totalEvents:N0}) ===");
+        foreach (var kv in EventCounts.OrderByDescending(kv => kv.Value))
+        {
+            var pct = totalEvents == 0 ? 0.0 : (double)kv.Value / totalEvents * 100.0;
+            LogHandler.Info($"  {kv.Key,-40} {kv.Value,12:N0}  ({pct,5:F1}%)");
         }
     }
 
