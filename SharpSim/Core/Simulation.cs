@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace SharpSim;
 
 
@@ -16,16 +18,14 @@ public interface IHistory
 {
 }
 
-public class Simulation : ISimulation
+public class Simulation(IEventList evtList) : ISimulation
 {
-    private IEventList evtList;
+    private IEventList evtList = evtList;
     public SimTime Now { get; private set; } = new SimTime(0);
     public List<ISimNode> Nodes { get; private set; } = new List<ISimNode>();
-    public Dictionary<string, long> EventCounts { get; private set; } = new Dictionary<string, long>();
-    public Simulation(IEventList evtList)
-    {
-        this.evtList = evtList;
-    }
+    public TimeSpan LastRunElapsed { get; private set; }
+    public string RunId { get; } = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+    public string LogPath { get => Path.Combine("Results", RunId); }
 
     public void AddNode(ISimNode node)
     {
@@ -39,13 +39,15 @@ public class Simulation : ISimulation
 
     public virtual void Run(SimTime endOfSimulation)
     {
+        // Create Log Folder
+        Directory.CreateDirectory(this.LogPath);
+        
         foreach (var node in Nodes)
         {
             node.Initialize();
         }
 
-        EventCounts.Clear();
-        long totalEvents = 0;
+        var sw = Stopwatch.StartNew();
 
         while (evtList.Count > 0)
         {
@@ -54,25 +56,12 @@ public class Simulation : ISimulation
                 break;
 
             Now = evt.Time;
-
-            var key = evt.GetType().Name;
-            EventCounts[key] = EventCounts.TryGetValue(key, out var c) ? c + 1 : 1;
-            totalEvents++;
-
             evt.Execute();
         }
 
-        ReportEventCounts(totalEvents);
-    }
-
-    private void ReportEventCounts(long totalEvents)
-    {
-        LogHandler.Info($"=== Event call histogram (total: {totalEvents:N0}) ===");
-        foreach (var kv in EventCounts.OrderByDescending(kv => kv.Value))
-        {
-            var pct = totalEvents == 0 ? 0.0 : (double)kv.Value / totalEvents * 100.0;
-            LogHandler.Info($"  {kv.Key,-40} {kv.Value,12:N0}  ({pct,5:F1}%)");
-        }
+        sw.Stop();
+        LastRunElapsed = sw.Elapsed;
+        LogHandler.Info($"Simulation finished in {LastRunElapsed.TotalSeconds:F3} s ({LastRunElapsed})");
     }
 
     public void Delay(SimTime delay, List<Action> actions)
