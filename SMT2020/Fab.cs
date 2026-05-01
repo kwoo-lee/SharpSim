@@ -10,6 +10,7 @@ public class Fab : Simulation
     public Transport Transport { get; private set; }
     public LotRelease LotRelease { get; private set; }
     public DateTime StartDateTime { get; private set; } = DateTime.MaxValue;
+    private int weekNumber = 0;
 
     public Fab(IEventList eventList) : base(eventList)
     {
@@ -21,14 +22,13 @@ public class Fab : Simulation
 
     public override void Run(SimTime endOfSimulation)
     {
+        this.Delay(604800, [WeeklyReport]);
         base.Run(endOfSimulation);
 
         LogHandler.Info($"====================================");
-        LogHandler.Info($"TOTAL FABIN : {LotRelease.LastLotId}");
-        LogHandler.Info($"TOTAL FABOUT: {MES.FabOutLots.Count}");
+        // LogHandler.Info($"TOTAL FABIN : {LotRelease.LastLotId}");
+        // LogHandler.Info($"TOTAL FABOUT: {MES.FabOutLots.Count}");
         LogHandler.Info($"====================================");
-
-        LogHandler.Info($"{MES.DISPATCH}");
     }
 
 #region [Load Data]
@@ -137,22 +137,13 @@ public class Fab : Simulation
                     $"Known locations: [{string.Join(", ", Transport.Locations)}]");
 
             var toolGroup = new ToolGroup(MES.ToolGroups.Count, toolGroupName, areaType, toolType, processingUnit, loadingTime, unloadingTime);
-            toolGroup.SetDispatchingRule(ParseDispatchingRuleSet(rank1Rule, rank2Rule, rank3Rule));
+            toolGroup.SetDispatchingRule(DispatchingRuleSet.ParseDispatchingRuleSet(rank1Rule, rank2Rule, rank3Rule));
             toolGroup.SetLocation(location);
 
             // if(toolGroupName == "Diffusion_FE_120")
             //     numberOfTools = 1;
             MES.AddToolGroup(toolGroup, numberOfTools);
         }
-    }
-
-    private static DispatchingRuleSet ParseDispatchingRuleSet(string rank1Rule, string rank2Rule, string rank3Rule)
-    {
-        DispatchingRuleType  rank1 = DispatchingRule.ParseRule(rank1Rule) ?? DispatchingRuleType.FIFO;
-        DispatchingRuleType? rank2 = DispatchingRule.ParseRule(rank2Rule);
-        DispatchingRuleType? rank3 = DispatchingRule.ParseRule(rank3Rule);
-
-        return new DispatchingRuleSet(rank1, rank2, rank3);
     }
 
     private void LoadRoutes(XLWorkbook workbook)
@@ -364,6 +355,40 @@ public class Fab : Simulation
         LotRelease.SetFutureLotList(lotListByRoute);
     }
 #endregion [Load Data End]
+    
+#region [Reports]
+    private void WeeklyReport()
+    {
+        weekNumber++;
+
+        FabReport();
+
+        this.Delay(604800, [WeeklyReport]);
+    }
+
+    private void FabReport()
+    {
+        string path = Path.Combine(this.LogPath, "FabWeekly.csv");
+        bool needHeader = !File.Exists(path);
+
+        int fabIn = History.FabInByProduct.Values.Sum();
+        int fabOut = History.FabOutByProduct.Values.Sum();
+        double avgCT = fabOut > 0
+            ? History.WeeklyTotalCTSeconds / fabOut / 86400.0
+            : 0.0;
+
+        using (var writer = new StreamWriter(path, append: true))
+        {
+            if (needHeader)
+                writer.WriteLine("Week,FabIn,FabOut,AvgCT_Days,WIP");
+            writer.WriteLine($"{weekNumber},{fabIn},{fabOut},{avgCT:F2},{History.WIP}");
+        }
+
+        History.ResetWeekly();
+    }
+#endregion [Reports End]
+
+#region [Utils]
     private static double ToTimeSpan(double value, string units)
     {
         return units.Trim().ToLowerInvariant() switch
@@ -376,5 +401,6 @@ public class Fab : Simulation
             _ => throw new NotSupportedException($"Unknown release interval unit: {units}")
         };
     }    
+#endregion [Utils End]
 }
 

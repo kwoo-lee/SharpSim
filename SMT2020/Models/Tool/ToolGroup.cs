@@ -6,7 +6,7 @@ public class ToolGroup(int id, string name, AreaType areaType, ToolType toolType
     : SimObject(id, name)
 {
     #region [Attributes]
-    public ToolType Toolype { get; private set; } =toolType;
+    public ToolType Toolype { get; private set; } = toolType;
     public AreaType AreaType { get; private set; } = areaType;
     public ProcessingUnit ProcessingUnit { get; private set; } = processingUnit;
     public double LoadingTime { get; } = loadingTime;

@@ -73,71 +73,79 @@ public class Tool(Fab fab, FabHistory hist, int id, string name, ToolType type, 
 
         //LogHandler.Debug($"{Sim.Now, -11:F1} | {this.Name, -21} | {lot.Name, -21} | LoadFinish");
 
-        if(StagedLots.Count == 1)
+        if(this.State is ToolState.Idle || this.State is ToolState.Busy)
         {
-            if(Sim.Now > nextRunnableTime)
+            if(this.State is ToolState.Idle)
+                this.SetState(ToolState.Busy);
+
+            if(StagedLots.Count == 1)
             {
-                ProcessStart(lot);
-            }
-            else
-            {
-                Sim.Delay(nextRunnableTime - Sim.Now, [() => {ProcessStart(lot);}]);
+                if(Sim.Now > nextRunnableTime)
+                {
+                    ProcessStart(lot);
+                }
+                else
+                {
+                    Sim.Delay(nextRunnableTime - Sim.Now, [() => {ProcessStart(lot);}]);
+                }
             }
         }
-
     }
 
     protected virtual void ProcessStart(SimObject simObject)
     {
-        Lot? lot = simObject as Lot;
-        if(lot == null)
+        if(this.State is ToolState.Idle || this.State is ToolState.Busy)
         {
-            LogHandler.Error("ProcessStart: Wrong Sim Object Type");
-            return;
-        }
-        else if (lot.CurrentStep == null)
-        {
-            LogHandler.Error($"ProcessStart: No Current Step {lot.Name}");
-            return;
-        }
-
-        double processingTime = lot.GetProcessingTime();
-        if(Type is ToolType.Table)
-        {
-            if(lot.CurrentStep.ProcessingUnit is ProcessingUnit.Wafer)
+            Lot? lot = simObject as Lot;
+            if(lot == null)
             {
-                processingTime = processingTime * lot.WafersPerLot;
+                LogHandler.Error("ProcessStart: Wrong Sim Object Type");
+                return;
             }
-        }
-        else if(Type is ToolType.Cascade)
-        {
-            if(lot.CurrentStep.ProcessingUnit is ProcessingUnit.Wafer)
+            else if (lot.CurrentStep == null)
             {
-                double interval = lot.CurrentStep.CascadingInterval.GetNumber(); // p = p + int * (w -1);
-                processingTime = processingTime + interval * (lot.WafersPerLot - 1);
+                LogHandler.Error($"ProcessStart: No Current Step {lot.Name}");
+                return;
             }
-            else // p* = p * w
-                processingTime = processingTime * lot.WafersPerLot;
+
+            double processingTime = lot.GetProcessingTime();
+            if(Type is ToolType.Table)
+            {
+                if(lot.CurrentStep.ProcessingUnit is ProcessingUnit.Wafer)
+                {
+                    processingTime = processingTime * lot.WafersPerLot;
+                }
+            }
+            else if(Type is ToolType.Cascade)
+            {
+                if(lot.CurrentStep.ProcessingUnit is ProcessingUnit.Wafer)
+                {
+                    double interval = lot.CurrentStep.CascadingInterval.GetNumber(); // p = p + int * (w -1);
+                    processingTime = processingTime + interval * (lot.WafersPerLot - 1);
+                }
+                else // p* = p * w
+                    processingTime = processingTime * lot.WafersPerLot;
+            }
+
+            SimTime estimatedRunTime = Sim.Now + processingTime;
+
+            this.StagedLots.Remove(lot);
+            this.RunningLots.Add(lot, estimatedRunTime);
+
+            Sim.DelayUntil(estimatedRunTime, [() => { ProcessFinish(lot); }]);
+
+            LogHandler.Debug($"{Sim.Now, -11:F1} | {this.Name, -21} | {lot.Name, -21} | ProcessStart");
+
+            // Lot Cascading Only
+            if(this.Type == ToolType.Cascade && this.ToolGroup.ProcessingUnit == ProcessingUnit.Lot)
+                nextRunnableTime = Sim.Now + lot.CurrentStep.CascadingInterval.GetNumber();
+            else
+                nextRunnableTime = estimatedRunTime;
+            
+            // Call next Lot
+            this.IsReserved = false;
+            Sim.MES.RequestNextLot(this);
         }
-
-        SimTime estimatedRunTime = Sim.Now + processingTime;
-
-        this.StagedLots.Remove(lot);
-        this.RunningLots.Add(lot, estimatedRunTime);
-
-        Sim.DelayUntil(estimatedRunTime, [() => { ProcessFinish(lot); }]);
-
-        LogHandler.Debug($"{Sim.Now, -11:F1} | {this.Name, -21} | {lot.Name, -21} | ProcessStart");
-
-        // Lot Cascading Only
-        if(this.Type == ToolType.Cascade && this.ToolGroup.ProcessingUnit == ProcessingUnit.Lot)
-            nextRunnableTime = Sim.Now + lot.CurrentStep.CascadingInterval.GetNumber();
-        else
-            nextRunnableTime = estimatedRunTime;
-        
-        // Call next Lot
-        this.IsReserved = false;
-        Sim.MES.RequestNextLot(this);
     }
 
     protected virtual void ProcessFinish(SimObject simObject)

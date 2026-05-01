@@ -19,8 +19,6 @@ public class MES(Fab fab, FabHistory hist, int id, string name) : SimNode<Fab, F
     private double dispatchDelay = 1;
 #endregion [Dispatch End]
 
-    public List<Lot> FabOutLots { get; } = [];
-
 #region [Initialize]
     public void AddToolGroup(ToolGroup toolGroup, int numberOfTools)
     {
@@ -31,19 +29,18 @@ public class MES(Fab fab, FabHistory hist, int id, string name) : SimNode<Fab, F
         if(toolGroup.Name != "Delay_32")
             toolGroup.AddTool(Sim, History, numberOfTools);
     }
-#endregion
+#endregion [Initialize End]
 
     public void SendLotToNextStep(Lot lot)
     {
         if (lot.StepIndex == -1) // Fab In
         {
             lot.StepIndex++;
-            //NewLot(ㅇㅇlot);
+            History.FabIn(lot);
         }
         else
         {
-            //Step currentStep = lot.CurrentStep;
-            //EndStep(timeNow, lot);
+            History.EndStep(lot.Trace);
 
             double reworkRatio = lot.CurrentStep.ReworkProbability;
             double probability = r.NextDouble();
@@ -70,6 +67,7 @@ public class MES(Fab fab, FabHistory hist, int id, string name) : SimNode<Fab, F
 
         if (lot.Route.Count > lot.StepIndex) // Next Step
         {
+            lot.Trace = new LotTrace() { EnqueueTime = Sim.Now };
             Step nextStep = lot.CurrentStep;
             ToolGroup nextTG = nextStep.ToolGroup;
 
@@ -89,7 +87,6 @@ public class MES(Fab fab, FabHistory hist, int id, string name) : SimNode<Fab, F
                 return;
             }
 
-            lot.EnqueueTime = Sim.Now;
             nextTG.LotQueue.Add(lot);
             if(!dispatchToolGroups.Contains(nextTG.Id))
             {
@@ -98,21 +95,11 @@ public class MES(Fab fab, FabHistory hist, int id, string name) : SimNode<Fab, F
 
                 dispatchToolGroups.Add(nextTG.Id);
             }
-            
-            // TBDs
-            // StartStep(timeNow, lot, nextStep);
-
-            // ToolGroup nextToolGroup = _toolGroups[nextStep.ToolGroupName];
-            // nextToolGroup.ExternalTransition(timeNow, new SimPort(TGExtPort.NewJob, foup));
         }
-        else // Finish. Go To Complete
+        else // FabOut
         {
             LogHandler.Debug($"{Sim.Now, -11:F1} | {this.Name, -21} | {lot.Name, -21} | FabOut");
-            FabOutLots.Add(lot);
-
-            // TBDs
-            // Complete complete = _completes.Find(x => x.Spec.RoutePlans.ContainsKey(lot.Route));
-            // RequestOHT(timeNow, foup.CurrentPort, complete, foup);
+            History.FabOut(lot, Sim.Now);
         }
     }
 
@@ -124,13 +111,11 @@ public class MES(Fab fab, FabHistory hist, int id, string name) : SimNode<Fab, F
             if(!dispatchToolGroups.Contains(toolGroup.Id))
             {
                 if(dispatchToolGroups.Count == 0) 
-                    Sim.Delay(dispatchDelay, [() => { Dispatch(); }]);
+                    Sim.Delay(dispatchDelay, [Dispatch]);
 
                 dispatchToolGroups.Add(toolGroup.Id);
             }
         }
-        // Send Assigned Lots to Tool's Loadport
-
     }
 
     private void Dispatch()
@@ -143,8 +128,9 @@ public class MES(Fab fab, FabHistory hist, int id, string name) : SimNode<Fab, F
             DispatchResult dr = dispatcher.Do(Sim.Now, toolGroup);
             foreach(var (tool, lots) in dr.Assignments)
             {
-                foreach(var lot in lots)
+                foreach(Lot lot in lots)
                 {
+                    lot.Trace.Assign(Sim.Now, tool.Name);
                     tool.AssignLot(lot);
                     toolGroup.LotQueue.Remove(lot);
                     Sim.Transport.Delivery(toolGroup.Location, tool, lot);
@@ -161,13 +147,11 @@ public class MES(Fab fab, FabHistory hist, int id, string name) : SimNode<Fab, F
         dispatchToolGroups.Clear();
     }
 
-public long DISPATCH = 0;
     private void ScheduleDispatch(int toolGroupId)
     {
-        DISPATCH++;
         if (dispatchToolGroups.Contains(toolGroupId)) return;
         if (dispatchToolGroups.Count == 0)
-            Sim.Delay(dispatchDelay, [() => { Dispatch(); }]);
+            Sim.Delay(dispatchDelay, [Dispatch]);
         dispatchToolGroups.Add(toolGroupId);
     }
 }

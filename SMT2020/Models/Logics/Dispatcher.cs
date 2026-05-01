@@ -111,7 +111,7 @@ public class Dispatcher : IDispatcher
 
             if (tempBatch.Count == 0) continue;
 
-            SimTime oldestEnqueue = tempBatch.Min(l => l.EnqueueTime);
+            SimTime oldestEnqueue = tempBatch.Min(l => l.Trace.EnqueueTime);
             SimTime longestWait = now - oldestEnqueue;
 
             bool dispatch =

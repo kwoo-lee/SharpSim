@@ -47,13 +47,13 @@ public abstract class DispatchingRule(DispatchingRuleType type, bool descending 
 /// <summary>FIFO — EnqueueTime 오름차순</summary>
 public class FifoRule() : DispatchingRule(DispatchingRuleType.FIFO)
 {
-    public override IComparable GetKey(Lot lot, SimTime now) => lot.EnqueueTime;
+    public override IComparable GetKey(Lot lot, SimTime now) => lot.Trace.EnqueueTime;
 }
 
 /// <summary>LIFO — EnqueueTime 내림차순</summary>
 public class LifoRule() : DispatchingRule(DispatchingRuleType.LIFO, descending: true)
 {
-    public override IComparable GetKey(Lot lot, SimTime now) => lot.EnqueueTime;
+    public override IComparable GetKey(Lot lot, SimTime now) => lot.Trace.EnqueueTime;
 }
 
 /// <summary>Priority — Priority 내림차순 (숫자 클수록 우선)</summary>
@@ -118,6 +118,15 @@ public class DispatchingRuleSet
         Ranking1 = DispatchingRule.Create(ranking1);
         Ranking2 = ranking2.HasValue ? DispatchingRule.Create(ranking2.Value) : null;
         Ranking3 = ranking3.HasValue ? DispatchingRule.Create(ranking3.Value) : null;
+    }
+    
+    public static DispatchingRuleSet ParseDispatchingRuleSet(string rank1Rule, string rank2Rule, string rank3Rule)
+    {
+        DispatchingRuleType  rank1 = DispatchingRule.ParseRule(rank1Rule) ?? DispatchingRuleType.FIFO;
+        DispatchingRuleType? rank2 = DispatchingRule.ParseRule(rank2Rule);
+        DispatchingRuleType? rank3 = DispatchingRule.ParseRule(rank3Rule);
+
+        return new DispatchingRuleSet(rank1, rank2, rank3);
     }
 
     /// <summary>

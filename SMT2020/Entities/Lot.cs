@@ -17,12 +17,9 @@ public class Lot(int id, string name, string productName, Route route, int wafer
     #endregion [Attributes End]
 
     #region [Status]
+    public LotTrace Trace {get; set;} = new LotTrace();
     public LotStatus State { get; set; }
     public string Location { get; set; } = "";
-    public SimTime EnqueueTime{get; set;}
-    public SimTime EstimatedProcessEndTime {get;set;}
-    public SimTime ProcessStartTime{get; set;}
-    public SimTime ProcessEndTime {get; set;}
     #endregion [Status End]
 
     public double GetProcessingTime()
