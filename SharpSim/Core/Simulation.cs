@@ -24,8 +24,6 @@ public class Simulation(IEventList evtList) : ISimulation
     public SimTime Now { get; private set; } = new SimTime(0);
     public List<ISimNode> Nodes { get; private set; } = new List<ISimNode>();
     public TimeSpan LastRunElapsed { get; private set; }
-    public string RunId { get; } = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-    public string LogPath { get => Path.Combine("Results", RunId); }
 
     public void AddNode(ISimNode node)
     {
@@ -39,9 +37,6 @@ public class Simulation(IEventList evtList) : ISimulation
 
     public virtual void Run(SimTime endOfSimulation)
     {
-        // Create Log Folder
-        Directory.CreateDirectory(this.LogPath);
-        
         foreach (var node in Nodes)
         {
             node.Initialize();

@@ -4,7 +4,7 @@ namespace SMT2020;
 
 public class MES(Fab fab, FabHistory hist, int id, string name) : SimNode<Fab, FabHistory>(fab, hist, id, name)
 {
-    private Random r = new Random();
+    private Random r = new Random(0);
 
 #region [Manufacturing Information]
     public List<string> Products { get;  set; } = [];
@@ -24,6 +24,7 @@ public class MES(Fab fab, FabHistory hist, int id, string name) : SimNode<Fab, F
     {
         ToolGroups.Add(toolGroup);
         ToolGroupByName[toolGroup.Name] = toolGroup;
+        History.AddToolGroup(toolGroup);
 
         // Generate Tools
         if(toolGroup.Name != "Delay_32")
@@ -40,7 +41,7 @@ public class MES(Fab fab, FabHistory hist, int id, string name) : SimNode<Fab, F
         }
         else
         {
-            History.EndStep(lot.Trace);
+            History.EndStep(lot);
 
             double reworkRatio = lot.CurrentStep.ReworkProbability;
             double probability = r.NextDouble();
@@ -68,6 +69,8 @@ public class MES(Fab fab, FabHistory hist, int id, string name) : SimNode<Fab, F
         if (lot.Route.Count > lot.StepIndex) // Next Step
         {
             lot.Trace = new LotTrace() { EnqueueTime = Sim.Now };
+            History.StartStep(lot);
+
             Step nextStep = lot.CurrentStep;
             ToolGroup nextTG = nextStep.ToolGroup;
 
@@ -76,12 +79,14 @@ public class MES(Fab fab, FabHistory hist, int id, string name) : SimNode<Fab, F
             double samplingPct = r.NextDouble();
             if(samplingPct > nextStep.ProcessingProbability)
             {
+                lot.Trace.DequeueTime = Sim.Now;
                 SendLotToNextStep(lot); // Skip the current Step
                 return;
             }
 
             if (nextTG.Name == "Delay_32")
             {
+                lot.Trace.DequeueTime = Sim.Now;
                 double delayTime = nextStep.ProcessingTime.GetNumber();
                 Sim.Delay(delayTime, new List<Action>() { () => { SendLotToNextStep(lot); } });
                 return;

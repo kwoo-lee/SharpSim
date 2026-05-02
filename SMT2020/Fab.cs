@@ -10,8 +10,7 @@ public class Fab : Simulation
     public Transport Transport { get; private set; }
     public LotRelease LotRelease { get; private set; }
     public DateTime StartDateTime { get; private set; } = DateTime.MaxValue;
-    private int weekNumber = 0;
-
+    
     public Fab(IEventList eventList) : base(eventList)
     {
         MES = new MES(this, History, Nodes.Count, "MES");
@@ -262,7 +261,9 @@ public class Fab : Simulation
 
             if (!MES.Routes.ContainsKey(routeName))
             {
-                MES.Routes[routeName] = new Route(routeName);
+                var route = new Route(routeName);
+                MES.Routes[routeName] = route;
+                History.AddRoute(route);
                 planByRoute[routeName] = new List<ReleasePlan>();
                 lotListByRoute[routeName] = new List<Lot>();
             }
@@ -359,32 +360,8 @@ public class Fab : Simulation
 #region [Reports]
     private void WeeklyReport()
     {
-        weekNumber++;
-
-        FabReport();
-
+        History.ReportWeekly();
         this.Delay(604800, [WeeklyReport]);
-    }
-
-    private void FabReport()
-    {
-        string path = Path.Combine(this.LogPath, "FabWeekly.csv");
-        bool needHeader = !File.Exists(path);
-
-        int fabIn = History.FabInByProduct.Values.Sum();
-        int fabOut = History.FabOutByProduct.Values.Sum();
-        double avgCT = fabOut > 0
-            ? History.WeeklyTotalCTSeconds / fabOut / 86400.0
-            : 0.0;
-
-        using (var writer = new StreamWriter(path, append: true))
-        {
-            if (needHeader)
-                writer.WriteLine("Week,FabIn,FabOut,AvgCT_Days,WIP");
-            writer.WriteLine($"{weekNumber},{fabIn},{fabOut},{avgCT:F2},{History.WIP}");
-        }
-
-        History.ResetWeekly();
     }
 #endregion [Reports End]
 

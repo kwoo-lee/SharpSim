@@ -56,4 +56,9 @@ public class Step(int order, string description, ToolGroup toolGroup, Processing
         StepForCriticalQueueTime = stepForCQT;
         CriticalQueueTime = new Const(cqt);
     }
+
+    public override string ToString()
+    {
+        return $"[{Order}]{Description}";
+    }
 }
