@@ -20,13 +20,14 @@ public interface IHistory
     void ReportWeekly(SimTime now);
 }
 
-public class Simulation(IEventList evtList, IHistory history) : ISimulation
+public class Simulation<THistory> (IEventList evtList, THistory history) : ISimulation
+    where THistory : IHistory
 {
     private IEventList evtList = evtList;
     public SimTime Now { get; private set; } = new SimTime(0);
     public List<ISimNode> Nodes { get; private set; } = new List<ISimNode>();
     public TimeSpan LastRunElapsed { get; private set; }
-    public IHistory History { get; } = history;
+    public THistory History { get; } = history;
 
     public void AddNode(ISimNode node)
     {

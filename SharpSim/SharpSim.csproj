@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
 
     <PackageId>SharpSim</PackageId>
-    <Version>0.2.0</Version>
+    <Version>0.2.2</Version>
     <Authors>Kwanwoo Lee</Authors>
     <Company>Kwanwoo Lee</Company>
     <Copyright>Copyright (c) 2026 Kwanwoo Lee</Copyright>
