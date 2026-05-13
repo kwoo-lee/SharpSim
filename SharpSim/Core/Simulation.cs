@@ -9,21 +9,24 @@ public interface ISimulation
     SimTime Now { get; }
     void Schedule(IEvent evt);
     void AddNode(ISimNode node);
-    void Run(SimTime endOfSimulation);
+    void Run(SimTime endOfSimulation, SimTime warmUpPeriod);
     void Delay(SimTime delay, List<Action> actions);
     void DelayUntil(SimTime time, List<Action> actions);
 }
 
 public interface IHistory
 {
+    void InitializeReport(SimTime now);
+    void ReportWeekly(SimTime now);
 }
 
-public class Simulation(IEventList evtList) : ISimulation
+public class Simulation(IEventList evtList, IHistory history) : ISimulation
 {
     private IEventList evtList = evtList;
     public SimTime Now { get; private set; } = new SimTime(0);
     public List<ISimNode> Nodes { get; private set; } = new List<ISimNode>();
     public TimeSpan LastRunElapsed { get; private set; }
+    public IHistory History { get; } = history;
 
     public void AddNode(ISimNode node)
     {
@@ -35,7 +38,7 @@ public class Simulation(IEventList evtList) : ISimulation
         evtList.Add(evt);
     }
 
-    public virtual void Run(SimTime endOfSimulation)
+    public virtual void Run(SimTime endOfSimulation, SimTime warmUpPeriod = default)
     {
         foreach (var node in Nodes)
         {
@@ -43,7 +46,7 @@ public class Simulation(IEventList evtList) : ISimulation
         }
 
         var sw = Stopwatch.StartNew();
-
+        this.Delay(warmUpPeriod, [OnWarmUpEnd]);
         while (evtList.Count > 0)
         {
             var evt = evtList.RetrieveNext();
@@ -67,5 +70,17 @@ public class Simulation(IEventList evtList) : ISimulation
     public void DelayUntil(SimTime time, List<Action> actions)
     {
         Schedule(new TimeDelayEvent(time, actions));
+    }
+
+    protected virtual void OnWarmUpEnd()
+    {
+        History.InitializeReport(this.Now);
+        this.Delay(604800.0, [WeeklyReport]);
+    }
+
+    protected virtual void WeeklyReport()
+    {
+        History.ReportWeekly(this.Now);
+        this.Delay(604800.0, [WeeklyReport]);
     }
 }
